@@ -50,17 +50,17 @@ def JacobiP(x, alpha, beta, n, matrix = False):
             P = ( a_coef(n=n-1,m=0) + x )*JacobiP(x,alpha,beta,n-1) - a_coef(n=n-1,m=-1)*JacobiP(x,alpha,beta,n-2)
             P /= a_coef(n=n-1,m=1)
     else:
-        P = np.zeros((n+1,len(x)))
-        P[0,:] += JacobiP(x, alpha, beta, 0, matrix=False)
+        P = np.empty((n+1,len(x)))
+        P[0,:] = JacobiP(x, alpha, beta, 0, matrix=False)
         if n>0:
-            P[1] += JacobiP(x, alpha, beta, 1, matrix=False)
+            P[1] = JacobiP(x, alpha, beta, 1, matrix=False)
         if n>1:
-            for m in range(2,n+1):
-                P[m] += (( a_coef(n=n-1,m=0) + x )*P[m-1] - a_coef(n=n-1,m=-1)*P[m-2])/a_coef(n=n-1,m=1)
+            for p in range(2,n+1):
+                P[p] = (( a_coef(n=p-1,m=0) + x )*P[p-1] - a_coef(n=p-1,m=-1)*P[p-2])/a_coef(n=p-1,m=1)
         
     return P
 
-def JacobiGQ(alpha, beta, N):
+'''def JacobiGQ(alpha, beta, N):
     # converted code from Allan
     if N == 0:
         x = np.array([-(alpha - beta) / (alpha + beta + 2)])
@@ -88,7 +88,43 @@ def JacobiGQ(alpha, beta, N):
     x = np.diag(D)
     w = (V[0, :] ** 2) * (2 ** (alpha + beta + 1)) / (alpha + beta + 1) * gamma(alpha + 1) * gamma(beta + 1) / gamma(alpha + beta + 1)
     
+    return x, w'''
+
+def JacobiGQ(alpha, beta, N):
+    # converted code from Allan
+    if N == 0:
+        x = np.array([-(alpha - beta) / (alpha + beta + 2)])
+        w = np.array([2])
+        return x, w
+    
+    # Form symmetric matrix from recurrence.
+    J = np.zeros((N + 1, N + 1))
+    h1 = 2 * np.arange(N + 1) + alpha + beta
+    # if alpha**2 - beta**2 > 10 * np.finfo(float).eps: # added by me - otherwise diagonal is inf
+    #J += 
+    J += np.diag(-1/2 * (alpha**2 - beta**2) *(1/ (h1 + 2)) *(1/ h1)) + np.diag(np.array(2 / (h1[:N] + 2) * np.sqrt((np.arange(1, N + 1) * 
+    (np.arange(1, N + 1) + alpha + beta) * 
+    (np.arange(1, N + 1) + alpha) * 
+    ((np.arange(1, N + 1) + beta) *  
+    1/((h1[:N] + 1)) *(1/ (h1[:N] + 3)))))), 1)
+
+    if alpha + beta < 10 * np.finfo(float).eps:
+        J[0, 0] = 0.0
+    J += J.T
+    #print(J)
+    # Compute quadrature by eigenvalue solve
+    D, V = np.linalg.eig(J)
+    idx = D.argsort()#[::]   
+    x = D[idx]
+    V = V[:,idx]
+    if (alpha == 0) and  (beta == 0):
+            w = (V[0, :] ** 2) * 2
+    else:
+        w = (np.square(V[0, :].T)) * (2 ** (alpha + beta + 1)) / (alpha + beta + 1) * gamma(alpha + 1) * gamma(beta + 1) / gamma(alpha + beta + 1)
+    
     return x, w
+
+
 
 def JacobiGL(alpha, beta, N):
     # Purpose: Compute the N'th order Gauss Lobatto quadrature 
@@ -105,6 +141,18 @@ def JacobiGL(alpha, beta, N):
     xint, _ = JacobiGQ(alpha + 1, beta + 1, N - 2)
     x = np.concatenate(([-1], xint, [1]))
     return x
+
+def GradJacobiP(x,alpha,beta,n,matrix=False):
+    if matrix:
+        JP = JacobiP(x,alpha+1,beta+1,n-1,matrix=True) 
+        vec = (alpha+beta+np.arange(1,n+1)+1)/2
+        dV = JP * vec[:,None]
+        dV = np.block([[np.zeros(np.shape(dV)[1])],[dV]])
+        return  dV.T
+    else:
+        return (alpha+beta+n+1)/2 * JacobiP(x,alpha+1,beta+1,n-1)
+    
+
 
 
 
